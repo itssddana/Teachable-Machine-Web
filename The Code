@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Teachable Machine Image Model</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      background-color: #f7f9fc;
+      text-align: center;
+      margin: 0;
+      padding: 0;
+      color: #333;
+      transition: background-color 0.5s ease;
+    }
+    h1 {
+      font-size: 36px;
+      color: #5c6bc0;
+      margin-top: 30px;
+    }
+    .button {
+      background-color: #5c6bc0;
+      color: white;
+      padding: 15px 25px;
+      font-size: 18px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      margin: 10px;
+      transition: background-color 0.3s ease;
+    }
+    .button:hover {
+      background-color: #3f51b5;
+    }
+    #exit-button {
+      background-color: #e53935; /* Red color */
+    }
+    #exit-button:hover {
+      background-color: #d32f2f; /* Darker red */
+    }
+    #webcam-container {
+      margin: 30px auto;
+      background-color: #fff;
+      border-radius: 12px;
+      padding: 15px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    }
+    #label-container {
+      margin-top: 20px;
+      font-size: 18px;
+      color: #555;
+    }
+    #counter {
+      font-size: 24px;
+      margin: 20px 0;
+      color: #5c6bc0;
+    }
+    .counter {
+      font-weight: bold;
+      color: #3f51b5;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Teachable Machine Image Model</h1>
+    <button class="button" type="button" onclick="init()">Start Webcam</button>
+    <div id="webcam-container"></div>
+    <div id="label-container"></div>
+    <div id="counter" class="counter">Total Detections: 0</div>
+    <button class="button" type="button" onclick="resetCounter()">Reset Counter</button>
+    <button id="exit-button" class="button" type="button" onclick="exit()">Exit</button>
+  </div>
+
+  <script>
+    const URL = "https://teachablemachine.withgoogle.com/models/QN8C_DOWp/"; // Replace with your model URL
+    let model, webcam, labelContainer, maxPredictions, detectionCounter = 0;
+    let previousPrediction = "";
+
+    // Load the image model and setup the webcam
+    async function init() {
+      const modelURL = URL + "model.json";
+      const metadataURL = URL + "metadata.json";
+
+      // Load model and metadata
+      model = await tmImage.load(modelURL, metadataURL);
+      maxPredictions = model.getTotalClasses();
+
+      // Setup webcam
+      const flip = true; // Flip the webcam horizontally
+      webcam = new tmImage.Webcam(200, 200, flip); // Width, height, flip
+      await webcam.setup(); // Request access to the webcam
+      await webcam.play();
+      window.requestAnimationFrame(loop);
+
+      // Append webcam to DOM
+      document.getElementById("webcam-container").appendChild(webcam.canvas);
+      labelContainer = document.getElementById("label-container");
+      for (let i = 0; i < maxPredictions; i++) {
+        labelContainer.appendChild(document.createElement("div"));
+      }
+    }
+
+    async function loop() {
+      webcam.update(); // Update the webcam frame
+      await predict();
+      window.requestAnimationFrame(loop);
+    }
+
+    // Run the webcam image through the model
+    async function predict() {
+      const prediction = await model.predict(webcam.canvas);
+      let detected = false;
+
+      for (let i = 0; i < maxPredictions; i++) {
+        const classPrediction =
+          prediction[i].className + ": " + prediction[i].probability.toFixed(2);
+        labelContainer.childNodes[i].innerHTML = classPrediction;
+
+        // Check for a specific class (e.g., "Cat")
+        if (prediction[i].className === "Cat" && prediction[i].probability > 0.5) {
+          detected = true;
+        }
+      }
+
+      // Increment counter only if the prediction has changed
+      if (detected && previousPrediction !== "Cat") {
+        detectionCounter++;
+        document.getElementById("counter").innerText = `Total Detections: ${detectionCounter}`;
+        // Change background color when cat is detected
+        document.body.style.backgroundColor = "#dcedc8"; // Light green when cat detected
+      }
+
+      // Reset background color when no cat detected
+      if (!detected) {
+        document.body.style.backgroundColor = "#f7f9fc"; // Original color when no cat detected
+      }
+
+      // Update the previousPrediction to the current prediction
+      previousPrediction = detected ? "Cat" : "";
+    }
+
+    // Reset detection counter
+    function resetCounter() {
+      detectionCounter = 0;
+      document.getElementById("counter").innerText = "Total Detections: 0";
+      document.body.style.backgroundColor = "#f7f9fc"; // Reset background color
+    }
+
+    // Exit the page
+    function exit() {
+      if (confirm("Are you sure you want to exit?")) {
+        window.close(); // This will attempt to close the current window/tab
+      }
+    }
+  </script>
+</body>
+</html>
